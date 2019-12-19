@@ -13,7 +13,7 @@
     [clojure.tools.deps.alpha.util.io :refer [printerrln]])
   (:import
     ;; maven-resolver-api
-    [org.eclipse.aether RepositorySystem RepositorySystemSession DefaultRepositoryCache]
+    [org.eclipse.aether RepositorySystem RepositorySystemSession DefaultRepositoryCache DefaultRepositorySystemSession ConfigurationProperties]
     [org.eclipse.aether.artifact Artifact DefaultArtifact]
     [org.eclipse.aether.repository LocalRepository Proxy RemoteRepository RemoteRepository$Builder]
     [org.eclipse.aether.graph Dependency Exclusion]
@@ -47,7 +47,9 @@
 
     ;; maven-settings-builder
     [org.apache.maven.settings.building DefaultSettingsBuilderFactory]
-    ))
+
+    ;; plexus-utils
+    [org.codehaus.plexus.util.xml Xpp3Dom]))
 
 (set! *warn-on-reflection* true)
 
@@ -119,6 +121,12 @@
         proxy (.setProxy proxy))
       (.build))))
 
+(defn remote-repos
+  [repos]
+  (->> repos
+    (remove (fn [[name config]] (nil? config)))
+    (mapv remote-repo)))
+
 ;; Local repository
 
 (def ^:private home (System/getProperty "user.home"))
@@ -165,7 +173,23 @@
     (transferFailed [_ event]
       ;; This happens when Maven can't find an artifact in a particular repo
       ;; (but still may find it in a different repo), ie this is a common event
-      #_(printerrln "Download failed:" (.. ^TransferEvent event getException getMessage)))))
+      #_(printerrln "Download failed:" (.. ^TransferEvent event getException getMessage)))
+    (transferInitiated [_ _event])
+    (transferProgressed [_ _event])
+    (transferSucceeded [_ _event])))
+
+(defn add-server-config [^DefaultRepositorySystemSession session ^Server server]
+  (when-let [^Xpp3Dom configuration (.getConfiguration server)]
+    (when-let [^Xpp3Dom headers (.getChild configuration "httpHeaders")]
+      (.setConfigProperty session
+        (str ConfigurationProperties/HTTP_HEADERS "." (.getId server))
+        (into {}
+          (keep (fn [^Xpp3Dom header]
+                  (let [name (.getChild header "name")
+                        value (.getChild header "value")]
+                    (when (and name value)
+                      [(.getValue name) (.getValue value)]))))
+          (.getChildren headers "property"))))))
 
 (defn make-session
   ^RepositorySystemSession [^RepositorySystem system local-repo]
@@ -174,6 +198,8 @@
     (.setLocalRepositoryManager session local-repo-mgr)
     (.setTransferListener session console-listener)
     (.setCache session (DefaultRepositoryCache.))
+    (doseq [^Server server (.getServers (get-settings))]
+      (add-server-config session server))
     session))
 
 (defn exclusions->data

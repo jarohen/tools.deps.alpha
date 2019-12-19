@@ -119,11 +119,12 @@
 (defn- parse-xml
   [^Reader rdr]
   (let [roots (tree/seq-tree event/event-element event/event-exit? event/event-node
-                (xml/event-seq rdr {:include-node? #{:element :characters :comment}}))]
+                (xml/event-seq rdr {:include-node? #{:element :characters :comment}
+                                    :skip-whitespace true}))]
     (first (filter #(instance? Element %) (first roots)))))
 
 (defn sync-pom
-  [{:keys [deps paths :mvn/repos] :as c} ^File dir]
+  [{:keys [deps paths :mvn/repos]} ^File dir]
   (let [repos (remove #(= "https://repo1.maven.org/maven2/" (-> % val :url)) repos)
         pom-file (jio/file dir "pom.xml")
         pom (if (.exists pom-file)

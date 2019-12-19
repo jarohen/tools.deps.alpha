@@ -6,7 +6,8 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.tools.deps.alpha.extensions.maven
+(ns ^{:skip-wiki true}
+  clojure.tools.deps.alpha.extensions.maven
   (:require
     [clojure.java.io :as jio]
     [clojure.string :as str]
@@ -37,7 +38,7 @@
           system ^RepositorySystem (session/retrieve :mvn/system #(maven/make-system))
           session ^RepositorySystemSession (session/retrieve :mvn/session #(maven/make-session system local-repo))
           artifact (maven/coord->artifact lib coord)
-          req (VersionRequest. artifact (mapv maven/remote-repo repos) nil)
+          req (VersionRequest. artifact (maven/remote-repos repos) nil)
           result (.resolveVersion system session req)]
       (if result
         [lib (assoc coord :mvn/version (.getVersion result))]
@@ -48,7 +49,7 @@
           system ^RepositorySystem (session/retrieve :mvn/system #(maven/make-system))
           session ^RepositorySystemSession (session/retrieve :mvn/session #(maven/make-session system local-repo))
           artifact (maven/coord->artifact lib coord)
-          req (VersionRangeRequest. artifact (mapv maven/remote-repo repos) nil)
+          req (VersionRangeRequest. artifact (maven/remote-repos repos) nil)
           result (.resolveVersionRange system session req)]
       (if (and result (.getHighestVersion result))
         [lib (assoc coord :mvn/version (.toString (.getHighestVersion result)))]
@@ -58,7 +59,7 @@
     [lib coord]))
 
 (defmethod ext/lib-location :mvn
-  [lib {:keys [mvn/version]} {:keys [mvn/repos mvn/local-repo]}]
+  [lib {:keys [mvn/version]} {:keys [mvn/local-repo]}]
   (let [[group-id artifact-id classifier] (maven/lib->names lib)]
     {:base (or local-repo maven/default-local-repo)
      :path (.getPath ^File
@@ -68,11 +69,11 @@
      :type :mvn}))
 
 (defmethod ext/dep-id :mvn
-  [lib coord config]
+  [_lib coord _config]
   (select-keys coord [:mvn/version]))
 
 (defmethod ext/manifest-type :mvn
-  [lib coord config]
+  [_lib _coord _config]
   {:deps/manifest :mvn})
 
 (defmethod ext/coord-summary :mvn [lib {:keys [mvn/version]}]
@@ -80,11 +81,11 @@
 
 (defonce ^:private version-scheme (GenericVersionScheme.))
 
-(defn- parse-version [{version :mvn/version :as coord}]
+(defn- parse-version [{version :mvn/version :as _coord}]
   (.parseVersion ^GenericVersionScheme version-scheme ^String version))
 
 (defmethod ext/compare-versions [:mvn :mvn]
-  [lib coord-x coord-y config]
+  [_lib coord-x coord-y _config]
   (apply compare (map parse-version [coord-x coord-y])))
 
 (defmethod ext/coord-deps :mvn
@@ -93,7 +94,7 @@
         system ^RepositorySystem (session/retrieve :mvn/system #(maven/make-system))
         session ^RepositorySystemSession (session/retrieve :mvn/session #(maven/make-session system local-repo))
         artifact (maven/coord->artifact lib coord)
-        repos (mapv maven/remote-repo repos)
+        repos (maven/remote-repos repos)
         req (ArtifactDescriptorRequest. artifact repos nil)
         result (.readArtifactDescriptor system session req)]
     (into []
@@ -109,8 +110,7 @@
   (try
     (let [artifact (maven/coord->artifact lib coord)
           req (ArtifactRequest. artifact mvn-repos nil)
-          result (.resolveArtifact system session req)
-          exceptions (.getExceptions result)]
+          result (.resolveArtifact system session req)]
       (cond
         (.isResolved result) (.. result getArtifact getFile getAbsolutePath)
         (.isMissing result) (throw (ex-info (str "Unable to download: [" lib (pr-str (:mvn/version coord)) "]") {:lib lib :coord coord}))
@@ -121,7 +121,7 @@
 (defmethod ext/coord-paths :mvn
   [lib coord _manifest {:keys [mvn/repos mvn/local-repo]}]
   (let [local-repo (or local-repo maven/default-local-repo)
-        mvn-repos (mapv maven/remote-repo repos)
+        mvn-repos (maven/remote-repos repos)
         system ^RepositorySystem (session/retrieve :mvn/system #(maven/make-system))
         session ^RepositorySystemSession (session/retrieve :mvn/session #(maven/make-session system local-repo))]
     [(get-artifact lib coord system session mvn-repos)]))

@@ -6,20 +6,21 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.tools.deps.alpha.script.print-tree
+(ns ^{:skip-wiki true}
+  clojure.tools.deps.alpha.script.print-tree
   (:require
     [clojure.tools.deps.alpha :as deps]
     [clojure.tools.deps.alpha.util.io :as io :refer [printerrln]]
     [clojure.tools.cli :as cli])
   (:import
-    [clojure.lang ExceptionInfo]))
+    [clojure.lang IExceptionInfo]))
 
 (def ^:private opts
   [[nil "--libs-file PATH" "Libs cache file to write"]])
 
 (defn run
   "Run print-tree script. See -main for details."
-  [{:keys [libs-file] :as options}]
+  [{:keys [libs-file] :as _options}]
   (let [lib-map (io/slurp-edn libs-file)]
     (deps/print-tree lib-map)))
 
@@ -39,7 +40,7 @@
       (run options))
     (catch Throwable t
       (printerrln "Error printing tree." (.getMessage t))
-      (when-not (instance? ExceptionInfo t)
+      (when-not (instance? IExceptionInfo t)
         (.printStackTrace t))
       (System/exit 1))))
 
