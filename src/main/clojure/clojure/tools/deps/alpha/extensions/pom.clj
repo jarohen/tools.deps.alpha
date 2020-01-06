@@ -6,7 +6,8 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.tools.deps.alpha.extensions.pom
+(ns ^{:skip-wiki true}
+  clojure.tools.deps.alpha.extensions.pom
   (:require
     [clojure.java.io :as jio]
     [clojure.string :as str]
@@ -28,7 +29,10 @@
     [org.eclipse.aether.impl ArtifactResolver VersionRangeResolver RemoteRepositoryManager]
     [org.eclipse.aether.internal.impl DefaultRemoteRepositoryManager]
     ;; maven-resolver-spi
-    [org.eclipse.aether.spi.locator ServiceLocator]))
+    [org.eclipse.aether.spi.locator ServiceLocator]
+    ;; maven-model
+    [org.apache.maven.model Resource]
+    ))
 
 (set! *warn-on-reflection* true)
 
@@ -47,12 +51,14 @@
     (.setAccessible ct true) ;; turn away from the horror
     (.newInstance ct (object-array [session nil "runtime" artifact-resolver version-range-resolver repo-mgr repos]))))
 
-;; pom (jio/file dir "pom.xml")
 (defn read-model
   ^Model [^ModelSource source config]
-  (let [req (doto (DefaultModelBuildingRequest.)
+  (let [props (java.util.Properties.)
+        _ (.setProperty props "project.basedir" ".")
+        req (doto (DefaultModelBuildingRequest.)
               (.setModelSource source)
-              (.setModelResolver (model-resolver config)))
+              (.setModelResolver (model-resolver config))
+              (.setSystemProperties props))
         builder (.newInstance (DefaultModelBuilderFactory.))
         result (.build builder req)]
     (.getEffectiveModel result)))
@@ -93,17 +99,19 @@
     (map model-dep->data)))
 
 (defmethod ext/coord-deps :pom
-  [_lib {:keys [deps/root] :as coord} _mf config]
+  [_lib {:keys [deps/root] :as _coord} _mf config]
   (let [pom (jio/file root "pom.xml")
         model (read-model-file pom config)]
     (model-deps model)))
 
 (defmethod ext/coord-paths :pom
-  [_lib {:keys [deps/root] :as coord} _mf config]
+  [_lib {:keys [deps/root] :as _coord} _mf config]
   (let [pom (jio/file root "pom.xml")
         model (read-model-file pom config)
-        srcs [(.getCanonicalPath (jio/file root (.. model getBuild getSourceDirectory)))
-              (.getCanonicalPath (jio/file root "src/main/clojure"))]]
+        srcs (into [(.getCanonicalPath (jio/file root (.. model getBuild getSourceDirectory)))
+                    (.getCanonicalPath (jio/file root "src/main/clojure"))]
+                   (for [^Resource resource (.. model getBuild getResources)]
+                     (.getCanonicalPath (jio/file root (.getDirectory resource)))))]
     (distinct srcs)))
 
 (comment

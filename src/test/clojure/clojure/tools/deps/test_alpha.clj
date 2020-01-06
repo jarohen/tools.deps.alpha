@@ -1,6 +1,6 @@
 (ns clojure.tools.deps.test-alpha
   (:require
-    [clojure.test :refer :all]
+    [clojure.test :refer [deftest is are testing]]
     [clojure.tools.deps.alpha :as deps]
     [clojure.tools.deps.alpha.extensions :as ext]
     [clojure.tools.deps.alpha.extensions.faken :as fkn]
@@ -24,8 +24,7 @@
     {} {:jvm-opts ["-Xms100m" "-Xmx200m"]} {:jvm-opts ["-Xms100m" "-Xmx200m"]}
     {:jvm-opts ["-Xms100m" "-Xmx200m"]} {:jvm-opts ["-Dfoo=bar"]} {:jvm-opts ["-Xms100m" "-Xmx200m" "-Dfoo=bar"]}
     {} {:main-opts ["foo.bar" "1"]} {:main-opts ["foo.bar" "1"]}
-    {:main-opts ["foo.bar" "1"]} {:main-opts ["foo.baz" "2"]} {:main-opts ["foo.baz" "2"]}
-    {} {:verbose true} {:verbose true}))
+    {:main-opts ["foo.bar" "1"]} {:main-opts ["foo.baz" "2"]} {:main-opts ["foo.baz" "2"]}))
 
 (def repo
   ;; "real"
@@ -114,7 +113,7 @@
 
 ;; +a1 -> +b1 -> +x2 -> +y1
 ;; +c1 -> -x1 -> -z1
-(deftest test-dep-choice
+(deftest test-dep-choice2
   (fkn/with-libs
     {'ex/a {{:fkn/version "1"} [['ex/b {:fkn/version "1"}]]}
      'ex/b {{:fkn/version "1"} [['ex/x {:fkn/version "2"}]]}

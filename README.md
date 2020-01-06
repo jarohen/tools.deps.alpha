@@ -30,20 +30,20 @@ Also see:
 
 # Release Information
 
-Latest release: 0.7.541
+Latest release: 0.8.599
 
 * [All released versions](http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22org.clojure%22%20AND%20a%3A%22tools.deps.alpha%22)
 
 [deps.edn](https://clojure.org/guides/deps_and_cli) dependency information:
 
 ```
-org.clojure/tools.deps.alpha {:mvn/version "0.7.541"}
+org.clojure/tools.deps.alpha {:mvn/version "0.8.599"}
 ```
 
 [Leiningen](https://github.com/technomancy/leiningen/) dependency information:
 
 ```
-[org.clojure/tools.deps.alpha "0.7.541"]
+[org.clojure/tools.deps.alpha "0.8.599"]
 ```
 
 [Maven](https://maven.apache.org) dependency information:
@@ -52,7 +52,7 @@ org.clojure/tools.deps.alpha {:mvn/version "0.7.541"}
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>tools.deps.alpha</artifactId>
-  <version>0.7.541</version>
+  <version>0.8.599</version>
 </dependency>
 ```
 
@@ -61,18 +61,19 @@ org.clojure/tools.deps.alpha {:mvn/version "0.7.541"}
 For info on using tools.deps as a library, see:
 
 * [API Usage](API.md)
+* [API Docs](https://clojure.github.io/tools.deps.alpha)
 
 # Developer Information
 
 * [GitHub project](https://github.com/clojure/tools.deps.alpha)
-* [How to contribute](https://dev.clojure.org/display/community/Contributing)
+* [How to contribute](https://clojure.org/community/contributing)
 * [Bug Tracker](https://dev.clojure.org/jira/browse/TDEPS)
 * [Continuous Integration](https://build.clojure.org/job/tools.deps.alpha/)
 * [Compatibility Test Matrix](https://build.clojure.org/job/tools.deps.alpha-test-matrix/)
 
 # Copyright and License
 
-Copyright © 2017 Rich Hickey, Alex Miller, and contributors
+Copyright © 2017-2019 Rich Hickey, Alex Miller, and contributors
 
 All rights reserved. The use and
 distribution terms for this software are covered by the

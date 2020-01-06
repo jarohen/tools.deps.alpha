@@ -1,6 +1,28 @@
 Changelog
 ===========
 
+* 0.8.599 on Nov 19, 2019
+  * TDEPS-127 - Include pom resource directories in dep paths
+  * TDEPS-140 - Use Maven server HTTP header properties
+* 0.8.591 on Nov 17, 2019
+  * Add tracing
+  * TDEPS-143 - Fix pom gen in combination with aliases does not respect alias modifications
+* 0.8.584 on Nov 4, 2019
+  * TDEPS-142 - Fix :paths replacement doesn't work when :deps replacement used in alias
+* 0.8.578 on Oct 18, 2019
+  * Fix bugs in script.make-classpath2
+* 0.8.573 on Oct 17, 2019
+  * Deprecate script.generate-manifest in favor of generate-manifest2, reuse more of make-classpath2
+* 0.8.567 on Oct 17, 2019 
+  * Rework impl of :deps and :paths in aliases, deprecate script.make-classpath
+    in favor of script.make-classpath2 and added tests
+  * nil repo configs will be ignored (can remove default repos by declaring nil)
+* 0.8.559 on Oct 15, 2019
+  * TDEPS-138 - add tools.deps.alpha.reader/user-deps-location function
+  * TDEPS-29 - fix -Spom adding unnecessary newlines in Java 9+
+  * Add :deps and :paths to aliases to "replace" main :deps and :paths
+* 0.7.549 on Sep 17, 2019
+  * Fix: spec error for :local/root and missing required key :sha for git coords
 * 0.7.541 on Aug 9, 2019
   * Fix: pom deps should include only compile and runtime deps
   * Fix: remove slf4j-nop as dep - let consumers choose

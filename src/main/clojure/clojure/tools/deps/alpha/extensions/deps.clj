@@ -6,7 +6,8 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.tools.deps.alpha.extensions.deps
+(ns ^{:skip-wiki true}
+  clojure.tools.deps.alpha.extensions.deps
   (:require
     [clojure.java.io :as jio]
     [clojure.tools.deps.alpha.extensions :as ext]
@@ -21,12 +22,12 @@
       config)))
 
 (defmethod ext/coord-deps :deps
-  [_lib {:keys [deps/root] :as coord} _mf config]
+  [_lib {:keys [deps/root] :as _coord} _mf config]
   (dir/with-dir (jio/file root)
     (seq (:deps (deps-map config root)))))
 
 (defmethod ext/coord-paths :deps
-  [_lib {:keys [deps/root] :as coord} _mf config]
+  [_lib {:keys [deps/root] :as _coord} _mf config]
   (dir/with-dir (jio/file root)
     (into []
       (map #(.getCanonicalPath (dir/canonicalize (jio/file %))))

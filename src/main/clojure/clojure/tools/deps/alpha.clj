@@ -19,21 +19,21 @@
     [clojure.tools.deps.alpha.extensions.local]
     [clojure.tools.deps.alpha.extensions.git]
     [clojure.tools.deps.alpha.extensions.deps]
-    [clojure.tools.deps.alpha.extensions.pom]
-    [clojure.tools.deps.alpha.util.io :as io])
+    [clojure.tools.deps.alpha.extensions.pom])
   (:import
     [clojure.lang PersistentQueue]
     [java.io File]))
 
 (def ^:private merge-alias-rules
-  {:extra-deps merge
+  {:deps merge
+   :extra-deps merge
    :override-deps merge
    :default-deps merge
    :classpath-overrides merge
+   :paths (comp vec distinct concat)
    :extra-paths (comp vec distinct concat)
    :jvm-opts (comp vec concat)
-   :main-opts (comp last #(remove nil? %) vector)
-   :verbose #(or %1 %2)})
+   :main-opts (comp last #(remove nil? %) vector)})
 
 (defn- choose-rule [alias-key]
   (or (merge-alias-rules alias-key)
@@ -89,10 +89,10 @@
 ;; {lib {:versions {coord-id coord}     ;; all version coords
 ;;       :paths    {coord-id #{paths}}  ;; paths to coord-ids
 ;;       :select   coord-id             ;; current selection
-;;       :pin      true}                ;; if selection is pinned
+;;       :top      true}                ;; if selection is top dep
 
 (defn- parent-missing?
-  [vmap lib path]
+  [vmap path]
   (when (seq path)
     (let [parent-lib (last path)
           parent-path (vec (butlast path))
@@ -100,72 +100,77 @@
       (not (contains? (get paths select) parent-path)))))
 
 (defn- include-coord?
-  [vmap lib coord coord-id path exclusions verbose]
+  [vmap lib path exclusions]
   (cond
-    ;; lib is a top dep and this is it => select and pin
-    (empty? path) :pin
+    ;; lib is a top dep and this is it => select
+    (empty? path) {:include true, :reason :top}
 
     ;; lib is excluded in this path => omit
     (excluded? exclusions path lib)
-    (do (when verbose (println "\t=> excluded"))
-        nil)
+    {:include false, :reason :excluded}
 
     ;; lib is a top dep and this isn't it => omit
-    (get-in vmap [lib :pin])
-    (do (when verbose (println "\t=> skip, top dep used instead"))
-        nil)
+    (get-in vmap [lib :top])
+    {:include false, :reason :use-top}
 
     ;; lib's parent path is not included => omit
-    (parent-missing? vmap lib path)
-    (do (when verbose (println "\t=> skip, path to dep no longer included" path))
-        nil)
+    (parent-missing? vmap path)
+    {:include false, :reason :parent-omitted}
 
     ;; otherwise => choose newest version
-    :else :choice))
+    :else
+    {:include true, :reason :choose-version}))
 
 (defn- dominates?
   [lib new-coord old-coord config]
   (pos? (ext/compare-versions lib new-coord old-coord config)))
 
-(defmacro ^:private with-log
-  [verbose msg & body]
-  `(do
-     (when ~verbose (println "\t=> " ~msg))
-     ~@body))
-
 (defn- add-coord
-  [vmap lib coord-id coord path action config verbose]
+  [vmap lib coord-id coord path action config]
   (let [vmap' (-> (or vmap {})
                 (assoc-in [lib :versions coord-id] coord)
                 (update-in [lib :paths]
                   (fn [coord-paths]
                     (merge-with into {coord-id #{path}} coord-paths))))]
-    (if (= action :pin)
-      (with-log verbose "include, pin top dep"
-        (update-in vmap' [lib] merge {:select coord-id :pin true}))
+    (if (= action :top)
+      {:include true
+       :reason :new-top-dep
+       :vmap (update-in vmap' [lib] merge {:select coord-id :top true})}
       (let [select-id (get-in vmap' [lib :select])]
         (if (not select-id)
-          (with-log verbose "include, new dep"
-            (assoc-in vmap' [lib :select] coord-id))
+          {:include true
+           :reason :new-dep
+           :vmap (assoc-in vmap' [lib :select] coord-id)}
           (let [select-coord (get-in vmap' [lib :versions select-id])]
             (cond
               (= select-id coord-id)
-              (with-log verbose "skip, same as current selection")
+              {:include false
+               :reason :same-version
+               :vmap vmap}
 
               (dominates? lib coord select-coord config)
-              (with-log verbose (str "include, replace" select-id)
-                (assoc-in vmap' [lib :select] coord-id))
+              {:include true
+               :reason :newer-version
+               :vmap (assoc-in vmap' [lib :select] coord-id)}
 
               :else
-              (with-log verbose (str "current is newer" select-id)))))))))
+              {:include false
+               :reason :older-version
+               :vmap vmap})))))))
 
 ;; expand-deps
 
+(defn- trace+
+  [trace? trace entry include reason]
+  (when trace?
+    (conj trace (merge entry {:include include :reason reason}))))
+
 (defn- expand-deps
-  [deps default-deps override-deps config verbose]
+  [deps default-deps override-deps config trace?]
   (loop [q (into (PersistentQueue/EMPTY) (map vector deps))
          version-map nil
-         exclusions nil] ;; path to set of exclusions at path
+         exclusions nil
+         trace []] ;; path to set of exclusions at path
     (if-let [path (peek q)] ;; path from root dep to dep being expanded
       (let [q' (pop q)
             [lib coord] (peek path)
@@ -174,28 +179,26 @@
             use-coord (cond override-coord override-coord
                             coord coord
                             :else (get default-deps lib))
-            coord-id (ext/dep-id lib use-coord config)]
-        (when verbose (println "Expanding" lib coord-id))
-        (if-let [action (include-coord? version-map lib use-coord coord-id parents exclusions verbose)]
-          (let [use-path (conj parents lib)
-                {:deps/keys [manifest root] :as manifest-info} (ext/manifest-type lib use-coord config)
-                use-coord (merge use-coord manifest-info)
-                children (dir/with-dir (if root (jio/file root) dir/*the-dir*)
-                           (canonicalize-deps (ext/coord-deps lib use-coord manifest config) config))
-                child-paths (map #(conj use-path %) children)
-                vmap' (add-coord version-map lib coord-id use-coord parents action config verbose)]
-            (if vmap'
-              (recur
-                (into q' child-paths)
-                vmap'
-                (if-let [excl (:exclusions use-coord)]
-                  (add-exclusion exclusions use-path excl)
-                  exclusions))
-              (recur q' version-map exclusions)))
-          (recur q' version-map exclusions)))
-      (do
-        (when verbose (println) (println "Version map:") (pprint version-map))
-        version-map))))
+            coord-id (ext/dep-id lib use-coord config)
+            entry (cond-> {:path parents, :lib lib, :coord coord, :use-coord use-coord, :coord-id coord-id}
+                    override-coord (assoc :override-coord override-coord))]
+        (let [{:keys [include reason]} (include-coord? version-map lib parents exclusions)]
+          (if include
+            (let [use-path (conj parents lib)
+                  {:deps/keys [manifest root] :as manifest-info} (ext/manifest-type lib use-coord config)
+                  use-coord (merge use-coord manifest-info)
+                  children (dir/with-dir (if root (jio/file root) dir/*the-dir*)
+                             (canonicalize-deps (ext/coord-deps lib use-coord manifest config) config))
+                  child-paths (map #(conj use-path %) children)
+                  {:keys [include reason vmap]} (add-coord version-map lib coord-id use-coord parents reason config)]
+              (if include
+                (let [excl' (if-let [excl (:exclusions use-coord)]
+                              (add-exclusion exclusions use-path excl)
+                              exclusions)]
+                  (recur (into q' child-paths) vmap excl' (trace+ trace? trace entry include reason)))
+                (recur q' vmap exclusions (trace+ trace? trace entry include reason))))
+            (recur q' version-map exclusions (trace+ trace? trace entry include reason)))))
+      (cond-> version-map trace? (with-meta {:trace {:log trace, :vmap version-map, :exclusions exclusions}})))))
 
 (defn- lib-paths
   [version-map config]
@@ -215,21 +218,23 @@
   from the initial set of deps. args-map is a map with several keys (all
   optional) that can modify the results of the transitive expansion:
 
-    :extra-deps - a map from lib to coord of extra deps to include
+    :extra-deps - a map from lib to coord of deps to add to the main deps
     :override-deps - a map from lib to coord of coord to use instead of those in the graph
     :default-deps - a map from lib to coord of deps to use if no coord specified
 
+  settings is an optional map of settings:
+    :trace - boolean. If true, the returned lib map will have metadata with :trace log
+
   Returns a lib map (map of lib to coordinate chosen)."
-  [{:keys [deps] :as deps-map} args-map]
-  (let [{:keys [extra-deps default-deps override-deps verbose]} args-map
-        deps (merge (:deps deps-map) extra-deps)]
-    (when verbose
-      (println "Initial deps to expand:")
-      (pprint deps))
-    (-> deps
-      (canonicalize-deps deps-map)
-      (expand-deps default-deps override-deps deps-map verbose)
-      (lib-paths deps-map))))
+  ([deps-map args-map]
+    (resolve-deps deps-map args-map nil))
+  ([deps-map args-map settings]
+   (let [{:keys [extra-deps default-deps override-deps]} args-map
+         deps (merge (:deps deps-map) extra-deps)]
+     (let [version-map (-> deps
+                         (canonicalize-deps deps-map)
+                         (expand-deps default-deps override-deps deps-map (:trace settings)))]
+       (with-meta (lib-paths version-map deps-map) (meta version-map))))))
 
 (defn- make-tree
   [lib-map]
@@ -262,14 +267,14 @@
   The classpath-args is a map with keys that can be used to modify the classpath
   building operation:
 
-    :classpath-overrides - a map of lib to path, where path is used instead of the coord's paths
     :extra-paths - extra classpath paths to add to the classpath
+    :classpath-overrides - a map of lib to path, where path is used instead of the coord's paths
 
   Returns the classpath as a string."
   [lib-map paths {:keys [classpath-overrides extra-paths] :as classpath-args}]
   (let [libs (merge-with (fn [coord path] (assoc coord :paths [path])) lib-map classpath-overrides)
         lib-paths (mapcat :paths (vals libs))]
-    (str/join File/pathSeparator (concat extra-paths paths lib-paths))))
+    (str/join File/pathSeparator (remove str/blank? (concat extra-paths paths lib-paths)))))
 
 (comment
   (require '[clojure.tools.deps.alpha.util.maven :as mvn])
@@ -308,7 +313,7 @@
 
   (clojure.pprint/pprint
     (resolve-deps {:deps {'org.clojure/tools.analyzer.jvm {:mvn/version "0.6.9"}}
-                   :mvn/repos mvn/standard-repos} {:verbose true}))
+                   :mvn/repos mvn/standard-repos} nil))
 
   (clojure.pprint/pprint
     (resolve-deps {:deps {'cheshire {:mvn/version "5.7.0"}}
@@ -320,13 +325,24 @@
                           'cheshire/cheshire {:mvn/version "5.8.0"}}
                    :mvn/repos mvn/standard-repos} nil))
 
+  ;; deps replacement
+  (clojure.pprint/pprint
+    (resolve-deps {:deps {'cheshire/cheshire {:mvn/version "5.8.0"}}
+                   :mvn/repos mvn/standard-repos}
+      {:deps {'org.clojure/tools.gitlibs {:mvn/version "0.2.64"}}}))
+
+  ;; deps addition
+  (clojure.pprint/pprint
+    (resolve-deps {:deps {'cheshire/cheshire {:mvn/version "5.8.0"}}
+                   :mvn/repos mvn/standard-repos}
+      {:extra-deps {'org.clojure/tools.gitlibs {:mvn/version "0.2.64"}}}))
+
   ;; override-deps
   (make-classpath
     (resolve-deps
       {:deps {'org.clojure/core.memoize {:mvn/version "0.5.8"}}
        :mvn/repos mvn/standard-repos}
-      {:override-deps {'org.clojure/clojure {:mvn/version "1.3.0"}}
-       :verbose true})
+      {:override-deps {'org.clojure/clojure {:mvn/version "1.3.0"}}})
     ["src"] nil)
 
   (make-classpath
@@ -334,6 +350,22 @@
       {:deps {'org.clojure/tools.deps.alpha {:mvn/version "0.1.40"}
               'org.clojure/clojure {:mvn/version "1.9.0-alpha17"}}
        :mvn/repos mvn/standard-repos} nil) nil nil)
+
+  ;; replace paths
+  (make-classpath
+    (resolve-deps
+      {:deps {'org.clojure/clojure {:mvn/version "1.10.0"}}
+       :mvn/repos mvn/standard-repos} nil)
+    ["src"]
+    {:paths ["replaced"]})
+
+  ;; extra paths
+  (make-classpath
+    (resolve-deps
+      {:deps {'org.clojure/clojure {:mvn/version "1.10.0"}}
+       :mvn/repos mvn/standard-repos} nil)
+    ["src"]
+    {:extra-paths ["replaced"]})
 
   ;; classpath overrides
   (make-classpath
@@ -347,7 +379,7 @@
     (resolve-deps
       {:deps {'org.clojure/clojure {:mvn/version "1.8.0"}}
        :mvn/repos mvn/standard-repos}
-      {:verbose true})
+      nil)
     nil
     {'org.clojure/clojure "/Users/alex/code/clojure/target/classes"})
 
@@ -356,7 +388,7 @@
              org.clojure/clojurescript {:mvn/version "1.9.946"}
              reagent {:mvn/version "0.6.0"}}
      :mvn/repos mvn/standard-repos}
-    {:verbose true})
+    nil)
 
   ;; err case
   (resolve-deps {:deps {'bogus {:mvn/version "1.2.3"}}
