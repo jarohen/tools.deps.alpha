@@ -1,6 +1,23 @@
 Changelog
 ===========
 
+* next
+  * TDEPS-150 - Fix regression in supporting -Scp flag (avoid resolving deps)
+  * TDEPS-148 - Fix incorrect path resolution for git/local dep without deps.edn
+* 0.8.666 on Feb 6, 2020
+  * Decompose make-classpath api into make-classpath-roots and join-classpath
+* 0.8.661 on Jan 30, 2020 
+  * New: concurrent downloading of deps and metadata
+  * Fix regression in -Spom no longer populating <repositories> from 0.8.573
+  * Fix manifest type lookup for git deps after coordinate resolution
+* 0.8.640 on Jan 20, 2020
+  * Added tests for pom deps and gen pom
+* 0.8.633 on Jan 17, 2020
+  * Fix regression with reading pom models with dep set from 0.8.624
+  * Fix regression breaking pom gen from 0.8.624
+* 0.8.624 on Jan 16, 2020 
+  * New s3 transporter, replacing old s3 repo access
+  * Bump all dep versions
 * 0.8.599 on Nov 19, 2019
   * TDEPS-127 - Include pom resource directories in dep paths
   * TDEPS-140 - Use Maven server HTTP header properties

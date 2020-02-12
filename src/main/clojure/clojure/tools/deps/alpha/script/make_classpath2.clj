@@ -38,7 +38,8 @@
    ["-M" "--main-aliases ALIASES" "Concatenated main option alias names" :parse-fn parse/parse-kws]
    ["-A" "--aliases ALIASES" "Concatenated generic alias names" :parse-fn parse/parse-kws]
    ;; options
-   [nil "--trace" "Emit trace log to trace.edn"]])
+   [nil "--trace" "Emit trace log to trace.edn"]
+   [nil "--threads THREADS" "Threads for concurrent downloads"]])
 
 (defn parse-opts
   "Parse the command line opts to make-classpath"
@@ -49,11 +50,11 @@
   "Given parsed-opts describing the input config files, and aliases to use,
   return the output lib map and classpath."
   [deps-map
-   {:keys [resolve-aliases makecp-aliases aliases trace] :as _opts}]
+   {:keys [resolve-aliases makecp-aliases aliases threads trace] :as _opts}]
   (session/with-session
     (let [resolve-args (deps/combine-aliases deps-map (concat aliases resolve-aliases))
           cp-args (deps/combine-aliases deps-map (concat aliases makecp-aliases))
-          libs (deps/resolve-deps deps-map resolve-args {:trace trace})
+          libs (deps/resolve-deps deps-map resolve-args {:threads threads, :trace trace})
           trace-log (-> libs meta :trace)
           effective-paths (or (:paths (deps/combine-aliases deps-map aliases))
                            (:paths deps-map))
@@ -71,18 +72,32 @@
     (printerrln "WARNING: Specified aliases are undeclared:" (vec unknown))))
 
 (defn run-core
-  "Run make-classpath script from/to data (no file stuff)"
+  "Run make-classpath script from/to data (no file stuff). Returns:
+    {;; Main outputs:
+     :libs lib-map          ;; from resolve-deps, .libs file
+     :cp classpath          ;; from make-classpath, .cp file
+     :main main-opts        ;; effective main opts, .main file
+     :jvm jvm-opts          ;; effective jvm opts, .jvm file
+     :trace trace-log       ;; from resolve-deps, if requested, trace.edn file
+
+     ;; Intermediate/source data:
+     :deps merged-deps      ;; effective merged :deps
+     :paths local-paths     ;; from make-classpath, just effective local paths
+     ;; and any other qualified keys from top level merged deps
+    }"
   [{:keys [install-deps user-deps project-deps config-data ;; all deps.edn maps
-           resolve-aliases makecp-aliases jvmopt-aliases main-aliases aliases] :as opts}]
+           resolve-aliases makecp-aliases jvmopt-aliases main-aliases aliases
+           skip-cp] :as opts}]
   (let [deps-map (reader/merge-deps (remove nil? [install-deps user-deps project-deps config-data]))]
     (check-aliases deps-map (concat resolve-aliases makecp-aliases jvmopt-aliases main-aliases aliases))
     (let [deps-map' (if-let [replace-deps (get (deps/combine-aliases deps-map aliases) :deps)]
                       (reader/merge-deps (remove nil? [install-deps user-deps (merge project-deps {:deps replace-deps}) config-data]))
                       deps-map)
-          cp-data (create-classpath deps-map' opts)
+          cp-data (when-not skip-cp (create-classpath deps-map' opts))
           jvm (seq (get (deps/combine-aliases deps-map (concat aliases jvmopt-aliases)) :jvm-opts))
-          main (seq (get (deps/combine-aliases deps-map (concat aliases main-aliases)) :main-opts))]
-      (cond-> (merge cp-data {:deps (:deps deps-map')})
+          main (seq (get (deps/combine-aliases deps-map (concat aliases main-aliases)) :main-opts))
+          repo-config (reduce-kv (fn [m k v] (if (qualified-keyword? k) (assoc m k v) m)) {} deps-map)]
+      (cond-> (merge repo-config cp-data {:deps (:deps deps-map')})
         jvm (assoc :jvm jvm)
         main (assoc :main main)))))
 

@@ -1,13 +1,13 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <artifactId>tools.deps.alpha</artifactId>
-  <version>0.8.600-SNAPSHOT</version>
+  <version>0.8.667-SNAPSHOT</version>
   <name>tools.deps.alpha</name>
 
   <parent>
     <groupId>org.clojure</groupId>
     <artifactId>pom.contrib</artifactId>
-    <version>0.2.2</version>
+    <version>0.3.0</version>
   </parent>
 
   <developers>
@@ -21,8 +21,8 @@
     <!-- used for build -->
     <clojure.warnOnReflection>true</clojure.warnOnReflection>
     <clojure.version>1.9.0</clojure.version>
-    <resolverVersion>1.1.1</resolverVersion>
-    <mavenVersion>3.5.2</mavenVersion>
+    <resolverVersion>1.4.1</resolverVersion>
+    <mavenVersion>3.6.3</mavenVersion>
 
     <!-- default published in install deps.edn -->
     <clojure.default>1.10.1</clojure.default>
@@ -71,11 +71,6 @@
       <version>${resolverVersion}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.maven.resolver</groupId>
-      <artifactId>maven-resolver-transport-wagon</artifactId>
-      <version>${resolverVersion}</version>
-    </dependency>
-    <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-resolver-provider</artifactId>
       <version>${mavenVersion}</version>
@@ -94,34 +89,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>data.xml</artifactId>
-      <version>0.2.0-alpha5</version>
-    </dependency>
-    <dependency>
-      <groupId>s3-wagon-private</groupId>
-      <artifactId>s3-wagon-private</artifactId>
-      <version>1.3.1</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.springframework.build</groupId>
-          <artifactId>aws-maven</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <!-- Override 4.8.0.RELEASE version used by s3-wagon-private -->
-      <groupId>org.springframework.build</groupId>
-      <artifactId>aws-maven</artifactId>
-      <version>5.0.0.RELEASE</version>
-      <exclusions>
-        <exclusion>
-          <groupId>ch.qos.logback</groupId>
-          <artifactId>logback-classic</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>com.amazonaws</groupId>
-          <artifactId>aws-java-sdk</artifactId>
-        </exclusion>
-      </exclusions>
+      <version>0.2.0-alpha6</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -131,7 +99,27 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>tools.cli</artifactId>
-      <version>0.3.5</version>
+      <version>0.4.2</version>
+    </dependency>
+    <dependency>
+      <groupId>com.cognitect.aws</groupId>
+      <artifactId>api</artifactId>
+      <version>0.8.408</version>
+    </dependency>
+    <dependency>
+      <groupId>com.cognitect.aws</groupId>
+      <artifactId>endpoints</artifactId>
+      <version>1.1.11.705</version>
+    </dependency>
+    <dependency>
+      <groupId>com.cognitect.aws</groupId>
+      <artifactId>s3</artifactId>
+      <version>784.2.593.0</version>
+    </dependency>
+    <dependency>
+      <groupId>javax.inject</groupId>
+      <artifactId>javax.inject</artifactId>
+      <version>1</version>
     </dependency>
   </dependencies>
 

@@ -6,7 +6,7 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns ^{skip-wiki true}
+(ns ^{:skip-wiki true}
    clojure.tools.deps.alpha.script.generate-manifest2
   (:require [clojure.java.io :as jio]
             [clojure.tools.cli :as cli]
@@ -50,6 +50,7 @@
                                          {:install-deps (reader/install-deps)
                                           :user-deps (makecp/read-deps config-user)
                                           :project-deps (makecp/read-deps config-project)}))
+              ;; treat all transitive deps as top-level deps
               updated-deps (reduce-kv (fn [m lib {:keys [dependents] :as coord}]
                                         (if (seq dependents) m (assoc m lib coord)))
                              {} (:libs mod-map))]
