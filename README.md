@@ -27,23 +27,24 @@ Also see:
 * [Deps and CLI Reference](https://clojure.org/reference/deps_and_cli)
 * [Dependency Heaven](http://cdn.cognitect.com/presentations/2017/dependency_heaven.pdf) from EuroClojure 2017 - [video](https://youtube.com/watch?v=sStlTye-Kjk)
 * [Projects that use or work with tools.deps and clj](https://github.com/clojure/tools.deps.alpha/wiki/Tools)
+* [Tool implementation and installers](https://github.com/clojure/brew-install)
 
 # Release Information
 
-Latest release: 0.8.666
+Latest release: 0.8.677
 
 * [All released versions](http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22org.clojure%22%20AND%20a%3A%22tools.deps.alpha%22)
 
 [deps.edn](https://clojure.org/guides/deps_and_cli) dependency information:
 
 ```
-org.clojure/tools.deps.alpha {:mvn/version "0.8.666"}
+org.clojure/tools.deps.alpha {:mvn/version "0.8.677"}
 ```
 
 [Leiningen](https://github.com/technomancy/leiningen/) dependency information:
 
 ```
-[org.clojure/tools.deps.alpha "0.8.666"]
+[org.clojure/tools.deps.alpha "0.8.677"]
 ```
 
 [Maven](https://maven.apache.org) dependency information:
@@ -52,7 +53,7 @@ org.clojure/tools.deps.alpha {:mvn/version "0.8.666"}
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>tools.deps.alpha</artifactId>
-  <version>0.8.666</version>
+  <version>0.8.677</version>
 </dependency>
 ```
 
