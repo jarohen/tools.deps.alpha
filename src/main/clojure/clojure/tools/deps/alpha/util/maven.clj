@@ -17,7 +17,7 @@
     [org.eclipse.aether.artifact Artifact DefaultArtifact]
     [org.eclipse.aether.repository LocalRepository Proxy RemoteRepository RemoteRepository$Builder]
     [org.eclipse.aether.graph Dependency Exclusion]
-    [org.eclipse.aether.transfer TransferListener TransferEvent TransferResource]
+    [org.eclipse.aether.transfer TransferListener TransferEvent TransferEvent$RequestType TransferResource]
 
     ;; maven-resolver-spi
     [org.eclipse.aether.spi.connector RepositoryConnectorFactory]
@@ -149,6 +149,11 @@
   ^RepositorySystem []
   (.getService ^ServiceLocator @the-locator RepositorySystem))
 
+(defn- request-direction [^TransferEvent event]
+  (if (= TransferEvent$RequestType/PUT (.getRequestType event))
+    :upload
+    :download))
+
 (def ^TransferListener console-listener
   (reify TransferListener
     (transferStarted [_ event]
@@ -156,9 +161,13 @@
             resource (.getResource event)
             name (.getResourceName resource)
             repo (.getRepositoryId resource)]
-        (printerrln "Downloading:" name "from" repo)))
+        (case (request-direction event)
+          :upload (printerrln "Uploading:" name "to" repo)
+          :download (printerrln "Downloading:" name "from" repo))))
     (transferCorrupted [_ event]
-      (printerrln "Download corrupted:" (.. ^TransferEvent event getException getMessage)))
+      (case (request-direction event)
+        :upload (printerrln "Upload corrupted:" (.. ^TransferEvent event getException getMessage))
+        :download (printerrln "Download corrupted:" (.. ^TransferEvent event getException getMessage))))
     (transferFailed [_ event]
       ;; This happens when Maven can't find an artifact in a particular repo
       ;; (but still may find it in a different repo), ie this is a common event
